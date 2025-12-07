@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>薬局運営の利益構造・戦略ダッシュボード</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background-color: #fdfbf7; /* Light warm neutral */
+        }
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .active-tab {
+            border-bottom: 2px solid #0d9488;
+            color: #0f766e;
+            font-weight: 700;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+        /* Custom scrollbar for detailing sections */
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+    <!-- Chosen Palette: Warm Clinical - Background #fdfbf7, Primary #0d9488 (Teal), Secondary #f59e0b (Amber), Text #334155 (Slate) -->
+    <!-- Application Structure Plan:
+        1. Hero Section: Introduces the core Profit = Revenue - Cost equation visually.
+        2. Structural Decomposition (Interactive Tree): A split view exploring Revenue drivers vs. Cost drivers. Users click nodes to reveal detailed bullet points from the report.
+        3. Strategy Simulator: An interactive section based on the report's strategy table. Users select a strategy (e.g., "Increase Unit Price") and see a simulated projection on a chart, reinforcing the cause-and-effect relationship.
+        4. Key Insights Summary: A synthesis of the report's text.
+        This structure transforms the static concept map into an explorable cause-and-effect engine.
+    -->
+    <!-- Visualization & Content Choices:
+        - Report Info: Profit Equation -> Goal: Show balance -> Viz: Big Number Cards & Interactive Equation -> Interaction: None/Visual -> Justification: Sets the stage.
+        - Report Info: Revenue/Cost Factors -> Goal: Detail exploration -> Viz: Interactive Cards (Grid Layout) acting as tree nodes -> Interaction: Click to expand details -> Justification: Replaces static tree with clean UI.
+        - Report Info: Strategies -> Goal: Demonstrate impact -> Viz: Bar Chart (Chart.js) -> Interaction: Buttons to toggle scenarios -> Justification: Shows quantitative impact of qualitative strategies.
+        - NO SVG/Mermaid: Used CSS Grid/Flexbox for structure and Chart.js for data viz.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+</head>
+<body class="text-slate-700">
+
+    <!-- Navigation / Header -->
+    <nav class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <span class="text-2xl text-teal-700 font-bold">💊 薬局経営ビジョン</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button onclick="scrollToSection('structure')" class="text-slate-600 hover:text-teal-600 px-3 py-2 rounded-md text-sm font-medium transition">構造分析</button>
+                    <button onclick="scrollToSection('simulation')" class="text-slate-600 hover:text-teal-600 px-3 py-2 rounded-md text-sm font-medium transition">戦略シミュレーション</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section: The Equation -->
+    <header class="bg-gradient-to-b from-teal-50 to-[#fdfbf7] py-12">
+        <div class="max-w-5xl mx-auto px-4 text-center">
+            <h1 class="text-3xl md:text-4xl font-bold text-slate-800 mb-4">薬局運営の利益構造モデル</h1>
+            <p class="text-lg text-slate-600 mb-10 max-w-2xl mx-auto">
+                薬局の健全な運営には、売上を最大化し、費用を最適化するバランス感覚が不可欠です。
+                以下のモデルは、最終的な「利益」がどのような要素で構成されているかを可視化したものです。
+            </p>
+
+            <!-- The Equation Visual -->
+            <div class="flex flex-col md:flex-row justify-center items-center gap-4 md:gap-8 mb-8">
+                <div class="bg-white p-6 rounded-xl shadow-md border-l-4 border-teal-500 w-full md:w-64 transform transition hover:scale-105">
+                    <div class="text-sm text-slate-500 font-bold uppercase tracking-wide">最終目標</div>
+                    <div class="text-3xl font-bold text-teal-700 mt-1">利益</div>
+                    <div class="text-xs text-slate-400 mt-2">Profit</div>
+                </div>
+                <div class="text-4xl text-slate-300 font-light">=</div>
+                <div class="bg-white p-6 rounded-xl shadow-md border-l-4 border-amber-400 w-full md:w-64 transform transition hover:scale-105">
+                    <div class="text-sm text-slate-500 font-bold uppercase tracking-wide">プラス要因</div>
+                    <div class="text-3xl font-bold text-slate-700 mt-1">売上</div>
+                    <div class="text-xs text-slate-400 mt-2">Revenue</div>
+                </div>
+                <div class="text-4xl text-slate-300 font-light">-</div>
+                <div class="bg-white p-6 rounded-xl shadow-md border-l-4 border-rose-400 w-full md:w-64 transform transition hover:scale-105">
+                    <div class="text-sm text-slate-500 font-bold uppercase tracking-wide">マイナス要因</div>
+                    <div class="text-3xl font-bold text-slate-700 mt-1">費用</div>
+                    <div class="text-xs text-slate-400 mt-2">Expenses</div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content: Structural Analysis -->
+    <main id="structure" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        
+        <div class="mb-8">
+            <h2 class="text-2xl font-bold text-slate-800 border-b-2 border-teal-100 pb-2 mb-4">構造要因の詳細分析</h2>
+            <p class="text-slate-600">
+                利益を生み出すための「売上」と、それを圧迫する「費用」。それぞれの構成要素をクリックして、
+                具体的な影響要因や改善のためのアクションポイントを確認してください。
+            </p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            
+            <!-- Revenue Column -->
+            <div class="bg-white rounded-2xl shadow-lg p-6 border border-slate-100">
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-xl font-bold text-amber-600 flex items-center gap-2">
+                        <span class="bg-amber-100 p-2 rounded-lg">📈</span> I. 売上要因
+                    </h3>
+                    <span class="text-sm bg-amber-50 text-amber-700 px-3 py-1 rounded-full">顧客数 × 単価</span>
+                </div>
+
+                <!-- Interactive Factors List -->
+                <div class="space-y-4">
+                    <!-- Factor 1 -->
+                    <div class="group">
+                        <button onclick="toggleDetail('revenue-unit-price')" class="w-full text-left bg-slate-50 hover:bg-amber-50 p-4 rounded-xl transition duration-200 border border-slate-200 hover:border-amber-300 flex justify-between items-center group-focus:ring-2 ring-amber-200">
+                            <div>
+                                <h4 class="font-bold text-slate-700">1. 顧客の単価 (Average Revenue)</h4>
+                                <p class="text-sm text-slate-500 mt-1">調剤報酬の加算と医薬品構成</p>
+                            </div>
+                            <span class="text-amber-500 text-xl group-hover:translate-x-1 transition">→</span>
+                        </button>
+                        <!-- Detail Panel (Hidden by default) -->
+                        <div id="revenue-unit-price" class="hidden pl-4 pr-4 pb-4 pt-2 bg-amber-50/50 rounded-b-xl border-x border-b border-amber-100 mx-2">
+                            <ul class="space-y-3 mt-2 text-sm text-slate-700">
+                                <li class="flex items-start gap-2">
+                                    <span class="text-amber-500 font-bold">⬆️</span>
+                                    <div>
+                                        <span class="font-bold">調剤報酬の加算獲得:</span>
+                                        <ul class="list-disc list-inside text-slate-600 ml-2 mt-1 space-y-1">
+                                            <li>薬学管理料（特定薬剤管理指導、服薬情報提供など）</li>
+                                            <li>体制加算（機能強化、地域支援体制）</li>
+                                            <li>在宅訪問関連の加算</li>
+                                        </ul>
+                                    </div>
+                                </li>
+                                <li class="flex items-start gap-2">
+                                    <span class="text-amber-500 font-bold">⬆️</span>
+                                    <div>
+                                        <span class="font-bold">高単価医薬品の提供:</span>
+                                        <span class="text-slate-600 block text-xs">調剤報酬体系に基づく適切な薬剤選択</span>
+                                    </div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Factor 2 -->
+                    <div class="group">
+                        <button onclick="toggleDetail('revenue-customer-count')" class="w-full text-left bg-slate-50 hover:bg-amber-50 p-4 rounded-xl transition duration-200 border border-slate-200 hover:border-amber-300 flex justify-between items-center">
+                            <div>
+                                <h4 class="font-bold text-slate-700">2. 顧客数 (Customer Flow)</h4>
+                                <p class="text-sm text-slate-500 mt-1">獲得数と離脱数のバランス</p>
+                            </div>
+                            <span class="text-amber-500 text-xl group-hover:translate-x-1 transition">→</span>
+                        </button>
+                        <div id="revenue-customer-count" class="hidden pl-4 pr-4 pb-4 pt-2 bg-amber-50/50 rounded-b-xl border-x border-b border-amber-100 mx-2">
+                            <ul class="space-y-3 mt-2 text-sm text-slate-700">
+                                <li class="flex items-start gap-2">
+                                    <span class="text-green-600 font-bold">✚</span>
+                                    <div>
+                                        <span class="font-bold">顧客獲得 (増加要因):</span>
+                                        <p class="text-slate-600 text-xs mt-1">新規処方箋獲得（医療機関連携・立地）、リピート率向上（指導の質）</p>
+                                    </div>
+                                </li>
+                                <li class="flex items-start gap-2">
+                                    <span class="text-red-500 font-bold">⚠️</span>
+                                    <div>
+                                        <span class="font-bold">顧客流出 (減少要因):</span>
+                                        <p class="text-slate-600 text-xs mt-1">長い待ち時間、接遇低下、在庫不足、競合への流出</p>
+                                    </div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cost Column -->
+            <div class="bg-white rounded-2xl shadow-lg p-6 border border-slate-100">
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-xl font-bold text-rose-600 flex items-center gap-2">
+                        <span class="bg-rose-100 p-2 rounded-lg">📉</span> II. 費用要因
+                    </h3>
+                    <span class="text-sm bg-rose-50 text-rose-700 px-3 py-1 rounded-full">仕入原価 ＋ 人件費</span>
+                </div>
+
+                <div class="space-y-4">
+                    <!-- Cost Factor 1 -->
+                    <div class="group">
+                        <button onclick="toggleDetail('cost-goods')" class="w-full text-left bg-slate-50 hover:bg-rose-50 p-4 rounded-xl transition duration-200 border border-slate-200 hover:border-rose-300 flex justify-between items-center">
+                            <div>
+                                <h4 class="font-bold text-slate-700">1. 物品購入費 (Medicines)</h4>
+                                <p class="text-sm text-slate-500 mt-1">医薬品在庫と仕入れコスト</p>
+                            </div>
+                            <span class="text-rose-500 text-xl group-hover:translate-x-1 transition">→</span>
+                        </button>
+                        <div id="cost-goods" class="hidden pl-4 pr-4 pb-4 pt-2 bg-rose-50/50 rounded-b-xl border-x border-b border-rose-100 mx-2">
+                            <ul class="space-y-3 mt-2 text-sm text-slate-700">
+                                <li class="flex items-start gap-2">
+                                    <span class="text-teal-600 font-bold">⬇️</span>
+                                    <div>
+                                        <span class="font-bold">費用の抑制策:</span>
+                                        <ul class="list-disc list-inside text-slate-600 ml-2 mt-1 space-y-1">
+                                            <li>適正な在庫管理（デッドストック削減）</li>
+                                            <li>価格交渉とジェネリック医薬品の促進</li>
+                                            <li>薬価差益の確保</li>
+                                        </ul>
+                                    </div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Cost Factor 2 -->
+                    <div class="group">
+                        <button onclick="toggleDetail('cost-personnel')" class="w-full text-left bg-slate-50 hover:bg-rose-50 p-4 rounded-xl transition duration-200 border border-slate-200 hover:border-rose-300 flex justify-between items-center">
+                            <div>
+                                <h4 class="font-bold text-slate-700">2. 人件費 (Personnel)</h4>
+                                <p class="text-sm text-slate-500 mt-1">生産性と適正配置</p>
+                            </div>
+                            <span class="text-rose-500 text-xl group-hover:translate-x-1 transition">→</span>
+                        </button>
+                        <div id="cost-personnel" class="hidden pl-4 pr-4 pb-4 pt-2 bg-rose-50/50 rounded-b-xl border-x border-b border-rose-100 mx-2">
+                            <ul class="space-y-3 mt-2 text-sm text-slate-700">
+                                <li class="flex items-start gap-2">
+                                    <span class="text-teal-600 font-bold">⬇️</span>
+                                    <div>
+                                        <span class="font-bold">効率化・抑制策:</span>
+                                        <ul class="list-disc list-inside text-slate-600 ml-2 mt-1 space-y-1">
+                                            <li>適正な人員配置（過剰回避）</li>
+                                            <li>業務効率化・DX推進（監査システム、自動分包機）</li>
+                                            <li>定着率向上による採用コスト削減</li>
+                                        </ul>
+                                    </div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Simulation Section -->
+    <section id="simulation" class="bg-slate-50 py-16 border-t border-slate-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="mb-10 text-center">
+                <span class="text-teal-600 font-bold tracking-wider uppercase text-sm">Action Plan</span>
+                <h2 class="text-3xl font-bold text-slate-800 mt-2">経営戦略シミュレーション</h2>
+                <p class="text-slate-600 mt-4 max-w-2xl mx-auto">
+                    レポートで提案されている3つの主要戦略を選択し、それが薬局の収益構造にどのような変化をもたらすか予測します。
+                </p>
+            </div>
+
+            <div class="flex flex-col lg:flex-row gap-8 items-start">
+                
+                <!-- Strategy Controls -->
+                <div class="w-full lg:w-1/3 space-y-4">
+                    <p class="text-sm font-bold text-slate-500 uppercase mb-2">戦略を選択してください</p>
+                    
+                    <button onclick="applyStrategy('strategy-price')" id="btn-price" class="strategy-btn w-full bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:border-teal-500 hover:shadow-md transition text-left relative overflow-hidden group">
+                        <div class="absolute top-0 left-0 w-1 h-full bg-teal-500 opacity-0 group-hover:opacity-100 transition"></div>
+                        <h4 class="font-bold text-slate-800 flex items-center gap-2">
+                            💎 単価向上戦略
+                        </h4>
+                        <p class="text-xs text-slate-500 mt-1">専門性の高い加算要件（無菌調剤、麻薬管理など）をクリアし、利益率を改善する。</p>
+                    </button>
+
+                    <button onclick="applyStrategy('strategy-volume')" id="btn-volume" class="strategy-btn w-full bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:border-amber-500 hover:shadow-md transition text-left relative overflow-hidden group">
+                        <div class="absolute top-0 left-0 w-1 h-full bg-amber-500 opacity-0 group-hover:opacity-100 transition"></div>
+                        <h4 class="font-bold text-slate-800 flex items-center gap-2">
+                            📢 売上維持/拡大戦略
+                        </h4>
+                        <p class="text-xs text-slate-500 mt-1">質の高い服薬指導と待ち時間短縮でリピーターを増やし、顧客基盤を強化する。</p>
+                    </button>
+
+                    <button onclick="applyStrategy('strategy-cost')" id="btn-cost" class="strategy-btn w-full bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:border-rose-500 hover:shadow-md transition text-left relative overflow-hidden group">
+                        <div class="absolute top-0 left-0 w-1 h-full bg-rose-500 opacity-0 group-hover:opacity-100 transition"></div>
+                        <h4 class="font-bold text-slate-800 flex items-center gap-2">
+                            🔧 コスト最適化戦略
+                        </h4>
+                        <p class="text-xs text-slate-500 mt-1">在庫棚卸しの徹底とデッドストック削減により、費用対効果を最大化する。</p>
+                    </button>
+
+                    <button onclick="resetSimulation()" class="w-full mt-4 py-2 text-sm text-slate-400 hover:text-slate-600 border border-transparent hover:border-slate-300 rounded-lg transition">
+                        ↺ シミュレーションをリセット
+                    </button>
+                </div>
+
+                <!-- Visualization Panel -->
+                <div class="w-full lg:w-2/3 bg-white p-6 rounded-2xl shadow-lg border border-slate-100">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 id="chart-title" class="text-lg font-bold text-slate-700">現状の収益構造</h3>
+                        <div class="flex gap-4 text-sm">
+                            <div class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-amber-400"></span> 売上</div>
+                            <div class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-rose-400"></span> 費用</div>
+                            <div class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-teal-500"></span> 利益</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Chart Container -->
+                    <div class="chart-container">
+                        <canvas id="simulationChart"></canvas>
+                    </div>
+
+                    <!-- Impact Text -->
+                    <div id="impact-description" class="mt-6 p-4 bg-slate-50 rounded-lg border border-slate-200 text-sm text-slate-600 transition-all duration-500 opacity-100">
+                        左側の戦略ボタンをクリックして、収益構造への影響をシミュレーションしてください。
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer class="bg-slate-800 text-slate-300 py-8 mt-12">
+        <div class="max-w-7xl mx-auto px-4 text-center text-sm">
+            <p>© 2025 Pharmacy Operations Interactive Report</p>
+            <p class="mt-2 opacity-50">Based on Concept Map Data</p>
+        </div>
+    </footer>
+
+    <!-- Logic -->
+    <script>
+        // Data Store
+        const initialData = {
+            revenue: 1000,
+            cost: 850,
+            get profit() { return this.revenue - this.cost; }
+        };
+
+        let currentData = { ...initialData };
+        let simulationChart;
+
+        // UI Interactions
+        function toggleDetail(id) {
+            const el = document.getElementById(id);
+            if (el.classList.contains('hidden')) {
+                el.classList.remove('hidden');
+                el.classList.add('block');
+            } else {
+                el.classList.add('hidden');
+                el.classList.remove('block');
+            }
+        }
+
+        function scrollToSection(id) {
+            document.getElementById(id).scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Chart Initialization
+        function initChart() {
+            const ctx = document.getElementById('simulationChart').getContext('2d');
+            simulationChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['現状 (Current)', 'シミュレーション後 (Projected)'],
+                    datasets: [
+                        {
+                            label: '売上 (Revenue)',
+                            data: [initialData.revenue, initialData.revenue],
+                            backgroundColor: 'rgba(251, 191, 36, 0.7)', // Amber-400
+                            borderColor: 'rgba(251, 191, 36, 1)',
+                            borderWidth: 1,
+                            borderRadius: 6
+                        },
+                        {
+                            label: '費用 (Cost)',
+                            data: [initialData.cost, initialData.cost],
+                            backgroundColor: 'rgba(244, 63, 94, 0.7)', // Rose-400
+                            borderColor: 'rgba(244, 63, 94, 1)',
+                            borderWidth: 1,
+                            borderRadius: 6
+                        },
+                        {
+                            label: '利益 (Profit)',
+                            data: [initialData.profit, initialData.profit],
+                            backgroundColor: 'rgba(20, 184, 166, 0.8)', // Teal-500
+                            borderColor: 'rgba(20, 184, 166, 1)',
+                            borderWidth: 1,
+                            borderRadius: 6
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#f1f5f9' }
+                        },
+                        x: {
+                            grid: { display: false }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }, // Custom legend used
+                        tooltip: {
+                            backgroundColor: '#1e293b',
+                            padding: 12,
+                            cornerRadius: 8,
+                            titleFont: { family: "'Noto Sans JP', sans-serif", size: 13 },
+                            bodyFont: { family: "'Noto Sans JP', sans-serif", size: 13 }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Strategy Simulation Logic
+        function applyStrategy(strategyType) {
+            // Reset base projected data
+            let projectedRevenue = initialData.revenue;
+            let projectedCost = initialData.cost;
+            let message = "";
+            let title = "";
+
+            // Reset button styles
+            document.querySelectorAll('.strategy-btn').forEach(btn => {
+                btn.classList.remove('ring-2', 'ring-teal-500', 'bg-teal-50');
+            });
+
+            // Apply logic
+            if (strategyType === 'strategy-price') {
+                // Focus: Unit Price Up. Result: Higher Revenue (Moderate), Same Cost. Profit Up.
+                projectedRevenue = initialData.revenue * 1.15; // +15%
+                message = "<strong>単価向上戦略の成果:</strong> <br>専門性の高い加算獲得により、顧客数はそのままでも<strong>売上が15%増加</strong>しました。コストは変わらないため、利益率が大幅に改善しています。";
+                title = "シミュレーション: 単価向上";
+                document.getElementById('btn-price').classList.add('ring-2', 'ring-teal-500', 'bg-teal-50');
+            } else if (strategyType === 'strategy-volume') {
+                // Focus: Customer Count Up. Result: Higher Revenue (High), Slightly Higher Cost (Variable cost). Profit Up.
+                projectedRevenue = initialData.revenue * 1.25; // +25%
+                projectedCost = initialData.cost * 1.10; // +10% (Cost of goods sold increases with volume)
+                message = "<strong>売上拡大戦略の成果:</strong> <br>リピーター増加と新規獲得により<strong>売上が25%増加</strong>しました。変動費（仕入れ）も10%増加しましたが、トータルの利益額は最大化されています。";
+                title = "シミュレーション: 顧客拡大";
+                document.getElementById('btn-volume').classList.add('ring-2', 'ring-teal-500', 'bg-teal-50');
+            } else if (strategyType === 'strategy-cost') {
+                // Focus: Cost Down. Result: Same Revenue, Lower Cost. Profit Up.
+                projectedCost = initialData.cost * 0.85; // -15%
+                message = "<strong>コスト最適化戦略の成果:</strong> <br>デッドストック削減と適正な人員配置により、売上を維持したまま<strong>費用を15%圧縮</strong>しました。最も効率的に利益を創出できています。";
+                title = "シミュレーション: コスト削減";
+                document.getElementById('btn-cost').classList.add('ring-2', 'ring-teal-500', 'bg-teal-50');
+            }
+
+            const projectedProfit = projectedRevenue - projectedCost;
+
+            // Update Chart
+            simulationChart.data.datasets[0].data[1] = projectedRevenue;
+            simulationChart.data.datasets[1].data[1] = projectedCost;
+            simulationChart.data.datasets[2].data[1] = projectedProfit;
+            simulationChart.update();
+
+            // Update Text
+            const impactBox = document.getElementById('impact-description');
+            impactBox.style.opacity = '0';
+            setTimeout(() => {
+                impactBox.innerHTML = message;
+                impactBox.style.opacity = '1';
+                document.getElementById('chart-title').innerText = title;
+            }, 300);
+        }
+
+        function resetSimulation() {
+            simulationChart.data.datasets[0].data[1] = initialData.revenue;
+            simulationChart.data.datasets[1].data[1] = initialData.cost;
+            simulationChart.data.datasets[2].data[1] = initialData.profit;
+            simulationChart.update();
+            
+            document.getElementById('impact-description').innerHTML = "左側の戦略ボタンをクリックして、収益構造への影響をシミュレーションしてください。";
+            document.getElementById('chart-title').innerText = "現状の収益構造";
+            
+            document.querySelectorAll('.strategy-btn').forEach(btn => {
+                btn.classList.remove('ring-2', 'ring-teal-500', 'bg-teal-50');
+            });
+        }
+
+        // Init on Load
+        window.addEventListener('DOMContentLoaded', () => {
+            initChart();
+        });
+
+    </script>
+</body>
+</html>
